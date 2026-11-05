@@ -103,16 +103,29 @@ class ResolutionService {
      * Compute SLA and MTTR metrics.
      */
     public static function getResolutionMetrics(PDO $db): array {
-        $stmt = $db->query("
-            SELECT 
-                COUNT(*) as total_resolved,
-                AVG((julianday(resolved_at) - julianday(created_at)) * 24) as avg_resolution_hours,
-                SUM(CASE WHEN julianday(resolved_at) <= julianday(sla_due_at) THEN 1 ELSE 0 END) as within_sla_count,
-                SUM(CASE WHEN resolution_worked = 1 THEN 1 ELSE 0 END) as solution_worked_count
-            FROM incidents 
-            WHERE status IN ('RESOLVED', 'CLOSED') AND resolved_at IS NOT NULL
-        ");
-        $metrics = $stmt->fetch(PDO::FETCH_ASSOC);
+        $driver = $db->getAttribute(PDO::ATTR_DRIVER_NAME);
+        if ($driver === 'pgsql') {
+            $stmt = $db->query("
+                SELECT 
+                    COUNT(*) as total_resolved,
+                    AVG(EXTRACT(EPOCH FROM (resolved_at - created_at)) / 3600.0) as avg_resolution_hours,
+                    SUM(CASE WHEN resolved_at <= sla_due_at THEN 1 ELSE 0 END) as within_sla_count,
+                    SUM(CASE WHEN resolution_worked = 1 THEN 1 ELSE 0 END) as solution_worked_count
+                FROM incidents 
+                WHERE status IN ('RESOLVED', 'CLOSED') AND resolved_at IS NOT NULL
+            ");
+        } else {
+            $stmt = $db->query("
+                SELECT 
+                    COUNT(*) as total_resolved,
+                    AVG((julianday(resolved_at) - julianday(created_at)) * 24.0) as avg_resolution_hours,
+                    SUM(CASE WHEN julianday(resolved_at) <= julianday(sla_due_at) THEN 1 ELSE 0 END) as within_sla_count,
+                    SUM(CASE WHEN resolution_worked = 1 THEN 1 ELSE 0 END) as solution_worked_count
+                FROM incidents 
+                WHERE status IN ('RESOLVED', 'CLOSED') AND resolved_at IS NOT NULL
+            ");
+        }
+        $metrics = $stmt ? $stmt->fetch(PDO::FETCH_ASSOC) : [];
 
         $totalResolved = (int)($metrics['total_resolved'] ?? 0);
         $withinSla = (int)($metrics['within_sla_count'] ?? 0);

@@ -103,7 +103,7 @@ class AuthController {
             ':phone' => $phone
         ]);
 
-        $userId = (int)$this->db->lastInsertId();
+        $userId = Database::lastInsertId($this->db, 'users');
 
         if ($role === 'staff' && $departmentId) {
             $sp = $this->db->prepare("INSERT INTO staff_profiles (user_id, department_id) VALUES (:uid, :did)");

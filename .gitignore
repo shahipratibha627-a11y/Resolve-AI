@@ -24,3 +24,4 @@ backend/public/uploads/*
 .DS_Store
 Thumbs.db
 desktop.ini
+pdf_build_temp/

@@ -61,6 +61,18 @@ try {
     $path = rtrim($requestUri, '/');
     if (empty($path)) $path = '/';
 
+    // 0. Health check (no auth, no DB query — safe for Railway healthcheck probe)
+    if ($path === '/api/health' && $method === 'GET') {
+        http_response_code(200);
+        echo json_encode([
+            'status'    => 'ok',
+            'service'   => 'ResolveAI API',
+            'version'   => '2.0.0',
+            'timestamp' => date('Y-m-d\TH:i:s\Z'),
+        ]);
+        exit;
+    }
+
     // 1. Auth routes
     if ($path === '/api/auth/login' && $method === 'POST') {
         (new AuthController($config))->login($body);
@@ -237,8 +249,11 @@ try {
 
 } catch (Throwable $e) {
     http_response_code(500);
+    $debug = $config['debug'] ?? false;
     echo json_encode([
         'success' => false,
-        'message' => 'Internal Server Error: ' . $e->getMessage()
+        'message' => $debug
+            ? 'Internal Server Error: ' . $e->getMessage()
+            : 'Internal Server Error',
     ]);
 }

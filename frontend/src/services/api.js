@@ -1,6 +1,13 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+let rawBaseUrl = (import.meta.env.VITE_API_BASE_URL || '/api').trim();
+// Strip trailing slashes
+rawBaseUrl = rawBaseUrl.replace(/\/+$/, '');
+// If pointing to a full remote backend URL without the '/api' suffix, append '/api'
+if (/^https?:\/\//i.test(rawBaseUrl) && !rawBaseUrl.endsWith('/api')) {
+  rawBaseUrl += '/api';
+}
+const API_BASE_URL = rawBaseUrl;
 
 const api = axios.create({
   baseURL: API_BASE_URL,

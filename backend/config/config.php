@@ -1,20 +1,51 @@
 <?php
 
 // ResolveAI Configuration
+
+// 1. Detect and parse Railway / Cloud PostgreSQL URL or variables
+$databaseUrl = getenv('DATABASE_URL') ?: getenv('DATABASE_PUBLIC_URL');
+$parsedUrl = $databaseUrl ? parse_url($databaseUrl) : null;
+
+// Determine driver
+$rawDriver = getenv('DB_CONNECTION') ?: '';
+if (!empty($parsedUrl['scheme'])) {
+    $rawDriver = $parsedUrl['scheme'];
+} elseif (empty($rawDriver) && (getenv('PGHOST') || getenv('PGDATABASE'))) {
+    $rawDriver = 'pgsql';
+}
+
+$driver = strtolower($rawDriver);
+if (in_array($driver, ['postgres', 'postgresql', 'pgsql'])) {
+    $driver = 'pgsql';
+} elseif ($driver === 'mysql') {
+    $driver = 'mysql';
+} else {
+    $driver = 'sqlite';
+}
+
+// Determine Host, Port, Database, Username, Password
+$dbHost = $parsedUrl['host'] ?? (getenv('DB_HOST') ?: getenv('PGHOST') ?: '127.0.0.1');
+$dbPort = isset($parsedUrl['port']) ? (string)$parsedUrl['port'] : (getenv('DB_PORT') ?: getenv('PGPORT') ?: '5432');
+$dbDatabase = isset($parsedUrl['path']) ? ltrim($parsedUrl['path'], '/') : (getenv('DB_DATABASE') ?: getenv('PGDATABASE') ?: 'resolveai');
+$dbUsername = isset($parsedUrl['user']) ? urldecode($parsedUrl['user']) : (getenv('DB_USERNAME') ?: getenv('PGUSER') ?: 'postgres');
+$dbPassword = isset($parsedUrl['pass']) ? urldecode($parsedUrl['pass']) : (getenv('DB_PASSWORD') ?: getenv('PGPASSWORD') ?: '');
+$dbSslMode = getenv('DB_SSLMODE') ?: ($driver === 'pgsql' && !in_array($dbHost, ['127.0.0.1', 'localhost']) ? 'prefer' : null);
+
 return [
     'app_name' => 'ResolveAI — AI-Powered Issue Detection and Resolution Platform',
     'app_version' => '2.0.0',
-    'debug' => true,
+    'debug' => (bool)(getenv('APP_DEBUG') ?: true),
 
-    // Database: SQLite by default for zero-config 1-click startup, or PostgreSQL/MySQL via .env
+    // Database: SQLite by default for zero-config 1-click startup, or PostgreSQL/MySQL via Railway/.env
     'database' => [
-        'driver' => getenv('DB_CONNECTION') ?: 'sqlite',
+        'driver' => $driver,
         'sqlite_path' => dirname(__DIR__) . DIRECTORY_SEPARATOR . 'instance' . DIRECTORY_SEPARATOR . 'resolveai.sqlite',
-        'host' => getenv('DB_HOST') ?: '127.0.0.1',
-        'port' => getenv('DB_PORT') ?: '5432',
-        'database' => getenv('DB_DATABASE') ?: 'resolveai',
-        'username' => getenv('DB_USERNAME') ?: 'postgres',
-        'password' => getenv('DB_PASSWORD') ?: '',
+        'host' => $dbHost,
+        'port' => $dbPort,
+        'database' => $dbDatabase,
+        'username' => $dbUsername,
+        'password' => $dbPassword,
+        'sslmode' => $dbSslMode,
     ],
 
     // JWT Security

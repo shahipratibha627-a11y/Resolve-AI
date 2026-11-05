@@ -14,13 +14,19 @@ Database::init($config);
 $db = Database::getConnection();
 
 echo "Initializing ResolveAI database schema...\n";
-$schemaSql = file_get_contents(__DIR__ . '/schema.sql');
+$driver = Database::getDriver();
+$schemaSql = Database::getSchemaSql($driver);
 $db->exec($schemaSql);
 
 // Clear existing tables
 $tables = ['ai_chat_messages', 'knowledge_articles', 'notifications', 'feedback', 'incident_images', 'incident_updates', 'ai_analysis', 'incidents', 'staff_profiles', 'locations', 'departments', 'users'];
 foreach ($tables as $tbl) {
     $db->exec("DELETE FROM {$tbl};");
+    if ($driver === 'pgsql') {
+        try {
+            $db->exec("ALTER SEQUENCE IF EXISTS {$tbl}_id_seq RESTART WITH 1;");
+        } catch (\Throwable $e) {}
+    }
 }
 
 echo "Seeding Departments...\n";
@@ -40,7 +46,7 @@ $deptMap = [];
 $insDept = $db->prepare("INSERT INTO departments (code, name, building_block, contact_email, head_of_department, description) VALUES (?, ?, ?, ?, ?, ?)");
 foreach ($departments as $d) {
     $insDept->execute([$d[0], $d[1], $d[2], $d[3], $d[4], "Academic Department of {$d[1]}."]);
-    $deptMap[$d[0]] = (int)$db->lastInsertId();
+    $deptMap[$d[0]] = Database::lastInsertId($db, 'departments');
 }
 
 echo "Seeding Locations...\n";
@@ -70,7 +76,7 @@ $locMap = [];
 $insLoc = $db->prepare("INSERT INTO locations (name, building_type, department_id, description) VALUES (?, ?, ?, ?)");
 foreach ($locations as $l) {
     $insLoc->execute([$l[0], $l[1], $l[2], "{$l[0]} campus area."]);
-    $locMap[$l[0]] = (int)$db->lastInsertId();
+    $locMap[$l[0]] = Database::lastInsertId($db, 'locations');
 }
 
 echo "Seeding Users...\n";
@@ -85,7 +91,7 @@ $insUser->execute([
     "+91 98765 00001",
     "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150"
 ]);
-$adminId = (int)$db->lastInsertId();
+$adminId = Database::lastInsertId($db, 'users');
 
 // Staff / Faculty Coordinators (Emails matching Department Code)
 $staffUsers = [
@@ -120,7 +126,7 @@ foreach ($staffUsers as $s) {
         "+91 98765 000" . rand(10, 99),
         "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150"
     ]);
-    $uid = (int)$db->lastInsertId();
+    $uid = Database::lastInsertId($db, 'users');
     if (!isset($staffMap[$s[2]])) {
         $staffMap[$s[2]] = $uid;
     }
@@ -136,7 +142,7 @@ $insUser->execute([
     "+91 98765 11111",
     "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150"
 ]);
-$studentId = (int)$db->lastInsertId();
+$studentId = Database::lastInsertId($db, 'users');
 
 $deptStudents = [
     ["cse.student@smartcampus.local", "Aarav Sharma (CSE Student)"],
@@ -162,7 +168,7 @@ foreach ($deptStudents as $ds) {
         "+91 98765 222" . rand(10, 99),
         null
     ]);
-    $studentIds[] = (int)$db->lastInsertId();
+    $studentIds[] = Database::lastInsertId($db, 'users');
 }
 
 echo "Seeding Knowledge Base (Resolution Intelligence)...\n";
@@ -433,7 +439,7 @@ foreach ($seedIncidents as $si) {
         $resWorked
     ]);
 
-    $incId = (int)$db->lastInsertId();
+    $incId = Database::lastInsertId($db, 'incidents');
     $createdIncIds[] = $incId;
 
     $conf = rand(88, 96) / 100.0;

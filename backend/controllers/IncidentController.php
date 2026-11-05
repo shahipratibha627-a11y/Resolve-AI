@@ -238,7 +238,7 @@ class IncidentController {
             ':sla' => $slaDueAt
         ]);
 
-        $incidentId = (int)$this->db->lastInsertId();
+        $incidentId = Database::lastInsertId($this->db, 'incidents');
 
         $aiInsert = $this->db->prepare("
             INSERT INTO ai_analysis (

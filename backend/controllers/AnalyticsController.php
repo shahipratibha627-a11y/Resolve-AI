@@ -127,11 +127,11 @@ class AnalyticsController {
                    SUM(CASE WHEN i.status = 'REPORTED' THEN 1 ELSE 0 END) as pending_count,
                    SUM(CASE WHEN i.status = 'IN_PROGRESS' THEN 1 ELSE 0 END) as in_progress_count,
                    SUM(CASE WHEN i.status IN ('RESOLVED', 'CLOSED') THEN 1 ELSE 0 END) as resolved_count,
-                   ROUND(AVG(f.rating), 1) as avg_rating
+                   ROUND(CAST(AVG(f.rating) AS NUMERIC), 1) as avg_rating
             FROM departments d
             LEFT JOIN incidents i ON d.id = i.department_id
             LEFT JOIN feedback f ON i.id = f.incident_id
-            GROUP BY d.id
+            GROUP BY d.id, d.code, d.name, d.building_block
             ORDER BY total_incidents DESC
         ");
         $results = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];
@@ -146,7 +146,7 @@ class AnalyticsController {
                    SUM(CASE WHEN i.priority = 'CRITICAL' THEN 1 ELSE 0 END) as critical_count
             FROM locations l
             LEFT JOIN incidents i ON l.name = i.location_name
-            GROUP BY l.id
+            GROUP BY l.id, l.name, l.building_type
             ORDER BY incident_count DESC
         ");
         $locations = $stmt ? $stmt->fetchAll(PDO::FETCH_ASSOC) : [];

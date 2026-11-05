@@ -29,12 +29,15 @@ $dbPort = isset($parsedUrl['port']) ? (string)$parsedUrl['port'] : (getenv('DB_P
 $dbDatabase = isset($parsedUrl['path']) ? ltrim($parsedUrl['path'], '/') : (getenv('DB_DATABASE') ?: getenv('PGDATABASE') ?: 'resolveai');
 $dbUsername = isset($parsedUrl['user']) ? urldecode($parsedUrl['user']) : (getenv('DB_USERNAME') ?: getenv('PGUSER') ?: 'postgres');
 $dbPassword = isset($parsedUrl['pass']) ? urldecode($parsedUrl['pass']) : (getenv('DB_PASSWORD') ?: getenv('PGPASSWORD') ?: '');
-$dbSslMode = getenv('DB_SSLMODE') ?: ($driver === 'pgsql' && !in_array($dbHost, ['127.0.0.1', 'localhost']) ? 'prefer' : null);
+$dbSslMode = getenv('DB_SSLMODE') ?: ($driver === 'pgsql' && !in_array($dbHost, ['127.0.0.1', 'localhost']) ? 'require' : null);
 
 return [
     'app_name' => 'ResolveAI — AI-Powered Issue Detection and Resolution Platform',
     'app_version' => '2.0.0',
-    'debug' => (bool)(getenv('APP_DEBUG') ?: true),
+    // Support both APP_DEBUG (generic) and DEBUG=false (Render convention)
+    'debug' => filter_var(getenv('APP_DEBUG') ?: getenv('DEBUG') ?: 'true', FILTER_VALIDATE_BOOLEAN),
+    // Frontend URL for CORS allowlist (set to your Vercel domain in production)
+    'frontend_url' => getenv('FRONTEND_URL') ?: '',
 
     // Database: SQLite by default for zero-config 1-click startup, or PostgreSQL/MySQL via Railway/.env
     'database' => [
